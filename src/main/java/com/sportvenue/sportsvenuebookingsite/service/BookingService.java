@@ -3,11 +3,10 @@ package com.sportvenue.sportsvenuebookingsite.service;
 import com.sportvenue.sportsvenuebookingsite.dto.BookingResponseDTO;
 import com.sportvenue.sportsvenuebookingsite.entity.Booking;
 import com.sportvenue.sportsvenuebookingsite.entity.BookingStatus;
+import com.sportvenue.sportsvenuebookingsite.entity.Venue;
 import com.sportvenue.sportsvenuebookingsite.repository.BookingRepository;
 import com.sportvenue.sportsvenuebookingsite.repository.UserRepository;
 import com.sportvenue.sportsvenuebookingsite.repository.VenueRepository;
-import com.sportvenue.sportsvenuebookingsite.entity.User;
-import com.sportvenue.sportsvenuebookingsite.entity.Venue;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import java.util.List;
@@ -23,6 +22,27 @@ public class BookingService {
     private final VenueRepository venueRepository;
 
     public BookingResponseDTO saveBooking(Booking booking) {
+
+        // BL1 - Check if venue exists
+        Venue venue = venueRepository.findById(booking.getVenue().getId())
+                .orElseThrow(() -> new RuntimeException("Venue not found!"));
+
+        // BL2 - Check if venue is active
+        if (!venue.getActiveStatus()) {
+            throw new RuntimeException("Venue is not active! Cannot book.");
+        }
+
+        // BL3 - Check if venue is available for booking
+        if (!venue.getBookingStatus()) {
+            throw new RuntimeException("Venue is not available for booking!");
+        }
+
+        // BL4 - Check double booking
+        if (bookingRepository.existsByVenueIdAndDate(
+                booking.getVenue().getId(), booking.getDate())) {
+            throw new RuntimeException("Venue is already booked on this date!");
+        }
+
         booking.setStatus(BookingStatus.PENDING);
         Booking saved = bookingRepository.save(booking);
 
@@ -32,7 +52,6 @@ public class BookingService {
         dto.setDate(saved.getDate());
         dto.setStatus(saved.getStatus());
 
-        // Fetch customer separately
         if (saved.getCustomer() != null) {
             userRepository.findById(saved.getCustomer().getId()).ifPresent(user -> {
                 dto.setCustomerId(user.getId());
@@ -40,13 +59,14 @@ public class BookingService {
             });
         }
 
-        // Fetch venue separately
         if (saved.getVenue() != null) {
-            venueRepository.findById(saved.getVenue().getId()).ifPresent(venue -> {
-                dto.setVenueId(venue.getId());
-                dto.setVenueName(venue.getName());
-                dto.setVenueLocation(venue.getLocation());
-                dto.setVenuePrice(venue.getPrice());
+            venueRepository.findById(saved.getVenue().getId()).ifPresent(v -> {
+                dto.setVenueId(v.getId());
+                dto.setVenueName(v.getName());
+                dto.setVenueLocation(v.getLocation());
+                dto.setVenuePrice(v.getPrice());
+                // BL4 - Auto calculate total price
+                dto.setTotalPrice(v.getPrice() * saved.getDuration());
             });
         }
 
@@ -99,6 +119,8 @@ public class BookingService {
             dto.setVenueName(b.getVenue().getName());
             dto.setVenueLocation(b.getVenue().getLocation());
             dto.setVenuePrice(b.getVenue().getPrice());
+            // BL4 - Auto calculate total price
+            dto.setTotalPrice(b.getVenue().getPrice() * b.getDuration());
         }
         return dto;
     }

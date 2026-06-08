@@ -16,4 +16,5 @@ public class BookingResponseDTO {
     private Integer duration;
     private LocalDate date;
     private BookingStatus status;
+    private Double totalPrice;
 }
