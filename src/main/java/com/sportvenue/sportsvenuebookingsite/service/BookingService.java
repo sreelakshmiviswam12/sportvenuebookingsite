@@ -4,6 +4,10 @@ import com.sportvenue.sportsvenuebookingsite.dto.BookingResponseDTO;
 import com.sportvenue.sportsvenuebookingsite.entity.Booking;
 import com.sportvenue.sportsvenuebookingsite.entity.BookingStatus;
 import com.sportvenue.sportsvenuebookingsite.repository.BookingRepository;
+import com.sportvenue.sportsvenuebookingsite.repository.UserRepository;
+import com.sportvenue.sportsvenuebookingsite.repository.VenueRepository;
+import com.sportvenue.sportsvenuebookingsite.entity.User;
+import com.sportvenue.sportsvenuebookingsite.entity.Venue;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import java.util.List;
@@ -15,12 +19,38 @@ import java.util.stream.Collectors;
 public class BookingService {
 
     private final BookingRepository bookingRepository;
+    private final UserRepository userRepository;
+    private final VenueRepository venueRepository;
 
     public BookingResponseDTO saveBooking(Booking booking) {
         booking.setStatus(BookingStatus.PENDING);
         Booking saved = bookingRepository.save(booking);
-        Booking full = bookingRepository.findById(saved.getId()).orElse(saved);
-        return toDTO(full);
+
+        BookingResponseDTO dto = new BookingResponseDTO();
+        dto.setId(saved.getId());
+        dto.setDuration(saved.getDuration());
+        dto.setDate(saved.getDate());
+        dto.setStatus(saved.getStatus());
+
+        // Fetch customer separately
+        if (saved.getCustomer() != null) {
+            userRepository.findById(saved.getCustomer().getId()).ifPresent(user -> {
+                dto.setCustomerId(user.getId());
+                dto.setCustomerName(user.getName());
+            });
+        }
+
+        // Fetch venue separately
+        if (saved.getVenue() != null) {
+            venueRepository.findById(saved.getVenue().getId()).ifPresent(venue -> {
+                dto.setVenueId(venue.getId());
+                dto.setVenueName(venue.getName());
+                dto.setVenueLocation(venue.getLocation());
+                dto.setVenuePrice(venue.getPrice());
+            });
+        }
+
+        return dto;
     }
 
     public List<BookingResponseDTO> getAllBookings() {

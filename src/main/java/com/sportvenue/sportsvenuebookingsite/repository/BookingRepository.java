@@ -10,7 +10,7 @@ import java.util.Optional;
 public interface BookingRepository extends JpaRepository<Booking, Long> {
 
     @Query("SELECT b FROM Booking b JOIN FETCH b.customer JOIN FETCH b.venue WHERE b.id = :id")
-    Optional<Booking> findById(@Param("id") Long id);
+    Optional<Booking> findByIdWithDetails(@Param("id") Long id);
 
     @Query("SELECT b FROM Booking b JOIN FETCH b.customer JOIN FETCH b.venue WHERE b.customer.id = :customerId")
     List<Booking> findByCustomerId(@Param("customerId") Long customerId);
