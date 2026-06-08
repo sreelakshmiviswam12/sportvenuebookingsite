@@ -4,9 +4,13 @@ import com.sportvenue.sportsvenuebookingsite.dto.BookingResponseDTO;
 import com.sportvenue.sportsvenuebookingsite.entity.Booking;
 import com.sportvenue.sportsvenuebookingsite.entity.BookingStatus;
 import com.sportvenue.sportsvenuebookingsite.entity.Venue;
+import com.sportvenue.sportsvenuebookingsite.entity.VenueRegulation;
+import com.sportvenue.sportsvenuebookingsite.entity.VenueExceptionRule;
 import com.sportvenue.sportsvenuebookingsite.repository.BookingRepository;
 import com.sportvenue.sportsvenuebookingsite.repository.UserRepository;
 import com.sportvenue.sportsvenuebookingsite.repository.VenueRepository;
+import com.sportvenue.sportsvenuebookingsite.repository.VenueRegulationRepository;
+import com.sportvenue.sportsvenuebookingsite.repository.VenueExceptionRuleRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import java.util.List;
@@ -20,6 +24,8 @@ public class BookingService {
     private final BookingRepository bookingRepository;
     private final UserRepository userRepository;
     private final VenueRepository venueRepository;
+    private final VenueRegulationRepository regulationRepository;
+    private final VenueExceptionRuleRepository exceptionRuleRepository;
 
     public BookingResponseDTO saveBooking(Booking booking) {
 
@@ -43,6 +49,44 @@ public class BookingService {
             throw new RuntimeException("Venue is already booked on this date!");
         }
 
+        // BL5 - Check Venue Regulation Hours
+        if (booking.getStartTime() != null && booking.getEndTime() != null) {
+            List<VenueRegulation> regulations = regulationRepository
+                    .findByVenueId(booking.getVenue().getId());
+
+            if (!regulations.isEmpty()) {
+                boolean withinHours = regulations.stream().anyMatch(reg ->
+                        (booking.getStartTime().equals(reg.getStartTime()) ||
+                                booking.getStartTime().isAfter(reg.getStartTime())) &&
+                                (booking.getEndTime().equals(reg.getEndTime()) ||
+                                        booking.getEndTime().isBefore(reg.getEndTime()))
+                );
+                if (!withinHours) {
+                    throw new RuntimeException(
+                            "Booking time is outside venue operating hours! " +
+                                    "Venue operates between " +
+                                    regulations.get(0).getStartTime() +
+                                    " and " +
+                                    regulations.get(0).getEndTime());
+                }
+            }
+
+            // BL6 - Check Venue Exception Rules
+            List<VenueExceptionRule> exceptions = exceptionRuleRepository
+                    .findByVenueId(booking.getVenue().getId());
+
+            for (VenueExceptionRule exception : exceptions) {
+                boolean overlaps =
+                        !booking.getStartTime().isAfter(exception.getUnavailableEnd()) &&
+                                !booking.getEndTime().isBefore(exception.getUnavailableStart());
+                if (overlaps) {
+                    throw new RuntimeException(
+                            "Venue is unavailable during this time slot: " +
+                                    exception.getName());
+                }
+            }
+        }
+
         booking.setStatus(BookingStatus.PENDING);
         Booking saved = bookingRepository.save(booking);
 
@@ -50,6 +94,8 @@ public class BookingService {
         dto.setId(saved.getId());
         dto.setDuration(saved.getDuration());
         dto.setDate(saved.getDate());
+        dto.setStartTime(saved.getStartTime());
+        dto.setEndTime(saved.getEndTime());
         dto.setStatus(saved.getStatus());
 
         if (saved.getCustomer() != null) {
@@ -65,7 +111,6 @@ public class BookingService {
                 dto.setVenueName(v.getName());
                 dto.setVenueLocation(v.getLocation());
                 dto.setVenuePrice(v.getPrice());
-                // BL4 - Auto calculate total price
                 dto.setTotalPrice(v.getPrice() * saved.getDuration());
             });
         }
@@ -109,6 +154,8 @@ public class BookingService {
         dto.setId(b.getId());
         dto.setDuration(b.getDuration());
         dto.setDate(b.getDate());
+        dto.setStartTime(b.getStartTime());
+        dto.setEndTime(b.getEndTime());
         dto.setStatus(b.getStatus());
         if (b.getCustomer() != null) {
             dto.setCustomerId(b.getCustomer().getId());
@@ -119,7 +166,6 @@ public class BookingService {
             dto.setVenueName(b.getVenue().getName());
             dto.setVenueLocation(b.getVenue().getLocation());
             dto.setVenuePrice(b.getVenue().getPrice());
-            // BL4 - Auto calculate total price
             dto.setTotalPrice(b.getVenue().getPrice() * b.getDuration());
         }
         return dto;

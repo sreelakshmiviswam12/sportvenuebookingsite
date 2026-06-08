@@ -3,6 +3,7 @@ package com.sportvenue.sportsvenuebookingsite.dto;
 import com.sportvenue.sportsvenuebookingsite.entity.BookingStatus;
 import lombok.Data;
 import java.time.LocalDate;
+import java.time.LocalTime;
 
 @Data
 public class BookingResponseDTO {
@@ -15,6 +16,8 @@ public class BookingResponseDTO {
     private Double venuePrice;
     private Integer duration;
     private LocalDate date;
+    private LocalTime startTime;
+    private LocalTime endTime;
     private BookingStatus status;
     private Double totalPrice;
 }
