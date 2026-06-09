@@ -1,5 +1,6 @@
 package com.sportvenue.sportsvenuebookingsite.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -14,6 +15,7 @@ public class User {
 
     private String name;
 
+    @JsonIgnore
     private String password;
 
     private String phoneNo;
